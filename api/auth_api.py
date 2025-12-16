@@ -1,4 +1,4 @@
-from constants import REGISTER_ENDPOINT, LOGIN_ENDPOINT
+from constants.constants import REGISTER_ENDPOINT, LOGIN_ENDPOINT
 from custom_requester.custom_requester import CustomRequester
 
 class AuthAPI(CustomRequester):
@@ -7,7 +7,7 @@ class AuthAPI(CustomRequester):
         super().__init__(session=session, base_url="https://auth.dev-cinescope.coconutqa.ru/")
 
 
-    def register_user(self,user_data, expected_status=201):
+    def register_user(self,user_data, expected_status=200):
         """
         Регистрация нового пользователя.
         :param user_data: Данные пользователя.
@@ -20,7 +20,7 @@ class AuthAPI(CustomRequester):
             expected_status=expected_status
         )
 
-    def login_user(self, login_data, expected_status=201):
+    def login_user(self, login_data, expected_status=200):
         """
         Авторизация пользователя.
         :param login_data: Данные для логина.
@@ -42,4 +42,4 @@ class AuthAPI(CustomRequester):
             raise KeyError('token is missing')
 
         token = response['accessToken']
-        self._update_session_headers(**{"authorization": "Bearer " + token})
+        self._update_session_headers(**{"Authorization": "Bearer " + token})

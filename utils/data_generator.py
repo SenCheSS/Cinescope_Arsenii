@@ -41,3 +41,35 @@ class DataGenerator:
         random.shuffle(password)
 
         return ''.join(password)
+
+    @staticmethod
+    def generate_random_string(length=8):
+        return ''.join(random.choices(string.ascii_lowercase + string.digits, k=length))
+
+    @staticmethod
+    def generate_movie_data():
+        """Генерация данных для создания фильма"""
+        valid_genre_ids = [1, 2, 3, 4, 5, 6, 7, 8]
+        return {
+            "name": f"Фильм {DataGenerator.generate_random_string(6)}",
+            "imageUrl": f"https://example.com/movie{random.randint(1, 1000)}.jpg",
+            "price": random.randint(100, 1000),
+            "description": f"Описание фильма {faker.text(max_nb_chars=50)}",
+            "location": random.choice(['SPB', 'MSK']),
+            "published": random.choice([True, False]),
+            "genreId": random.choice(valid_genre_ids)
+        }
+
+    @staticmethod
+    def generate_movie_update_data():
+        """Генерация данных для обновления фильма"""
+        valid_genre_ids = [1, 2, 3, 4, 5, 6, 7, 8]
+
+        return {
+            "name": f"Обновленный фильм {DataGenerator.generate_random_string(6)}",
+            "price": random.randint(100, 1000),
+            "description": f"Обновленное описание {faker.text(max_nb_chars=30)}",
+            "location": random.choice(['SPB', 'MSK']),
+            "published": random.choice([True, False]),
+            "genreId": random.choice(valid_genre_ids)
+        }

@@ -1,11 +1,8 @@
 import json
-from http.client import responses
-
-import requests
+from typing import Optional, Type
+from pydantic import ValidationError
 import logging
 import os
-
-from Tools.scripts.generate_opcode_h import header
 
 
 class CustomRequester:
@@ -27,34 +24,53 @@ class CustomRequester:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
 
-    def send_request(self, method, endpoint, data=None, expected_status=200, need_logging=True):
+    def send_request(self, method, endpoint, data=None, params=None,
+                     expected_status=200, need_logging=True,
+                     response_model: Optional[Type] = None):
         """
         Универсальный метод для отправки запросов.
         :param method: HTTP метод (GET, POST, PUT, DELETE и т.д.).
         :param endpoint: Эндпоинт (например, "/login").
         :param data: Тело запроса (JSON-данные).
+        :param params: Query параметры.
         :param expected_status: Ожидаемый статус-код (по умолчанию 200).
         :param need_logging: Флаг для логирования (по умолчанию True).
+        :param response_model: Pydantic модель для валидации ответа (опционально).
         :return: Объект ответа requests.Response.
         """
         url = f'{self.base_url}{endpoint}'
-        response = self.session.request(method, url, json=data, headers=self.headers)
+        response = self.session.request(
+            method,
+            url,
+            json=data,
+            params=params,
+            headers=self.headers)
         if need_logging:
             self.log_request_and_response(response)
         if response.status_code != expected_status:
             raise ValueError(f'Unexpected status code: {response.status_code}. Expected: {expected_status}')
+        if response_model and response.text:
+            try:
+                # Всего с помощью 1 строки!
+                validated_response = response_model(**response.json())
+                return validated_response  # Возвращаем валидированный объект
+            except ValidationError as e:
+                self.logger.error(f"Response validation failed: {e}")
+                raise ValueError(f"Response validation error: {e}")
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Invalid JSON in response: {e}")
+                raise ValueError(f"Invalid JSON in response: {e}")
         return response
 
 
-    def _update_session_headers(self, session, **kwargs):
+    def _update_session_headers(self, **kwargs):
         """
         Обновление заголовков сессии.
         :param session: Объект requests.Session, предоставленный API-классом.
         :param kwargs: Дополнительные заголовки.
         """
-        self.headers.update(kwargs) # Обновляем базовые заголовки
-        session.headers.update(self.headers) # Обновляем заголовки в текущей сессии
-
+        self.headers.update(kwargs)                # Обновляем базовые заголовки
+        self.session.headers.update(self.headers)  # Обновляем заголовки в текущей сессии
 
     def log_request_and_response(self, response):
         try:
