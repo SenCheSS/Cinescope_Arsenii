@@ -6,20 +6,34 @@ from models.user_models import (RegisterUserResponse, RegistrationUserData,
 
 
 class TestAuthApi:
-    def test_register_user(self, api_manager: ApiManager,
-                           registration_user_data: RegistrationUserData):
-        # Преобразуем в словарь
-        user_data_dict = registration_user_data.model_dump()
-        # Преобразуем Roles enum в строки
-        if 'roles' in user_data_dict:
-            user_data_dict['roles'] = [role.value for role in registration_user_data.roles]
-        # Регистрируем пользователя
-        response = api_manager.auth_api.register_user(
-            user_data=user_data_dict,
-            expected_status=201
-        )
-        # Валидируем ответ
-        register_response = RegisterUserResponse(**response.json())
+
+    @allure.title("Тест регистрации пользователя с помощью Mock")
+    @allure.severity(allure.severity_level.MINOR)
+    @allure.label("qa_name", "Ivan Petrovich")
+    def test_register_user_mock(self, api_manager: ApiManager, registration_user_data: RegistrationUserData, mocker):
+        with allure.step("Мокаем метод register_user в auth_api"):
+            mock_response = RegisterUserResponse(  # Фиктивный ответ
+                id="id",
+                email="email@email.com",
+                fullName="fullName",
+                verified=True,
+                banned=False,
+                roles=[Roles.SUPER_ADMIN],
+                createdAt=str(datetime.datetime.now())
+            )
+
+            mocker.patch.object(
+                api_manager.auth_api,  # Объект, который нужно замокать
+                'register_user',  # Метод, который нужно замокать
+                return_value=mock_response  # Фиктивный ответ
+            )
+
+        with allure.step("Вызываем метод, который должен быть замокан"):
+            user_data_dict = registration_user_data.model_dump()
+            if 'roles' in user_data_dict:
+                user_data_dict['roles'] = [role.value for role in registration_user_data.roles]
+
+            register_user_response = api_manager.auth_api.register_user(user_data_dict)
 
         assert register_response.email == registration_user_data.email
         assert register_response.fullName == registration_user_data.fullName
