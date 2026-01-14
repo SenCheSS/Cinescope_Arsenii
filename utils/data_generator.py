@@ -1,6 +1,8 @@
+import datetime
 import random
 import string
 from string import digits
+from typing import Optional
 
 from faker import Faker
 faker = Faker()
@@ -73,3 +75,53 @@ class DataGenerator:
             "published": random.choice([True, False]),
             "genreId": random.choice(valid_genre_ids)
         }
+
+    @staticmethod
+    def generate_user_data() -> dict:
+        """Генерирует данные для тестового пользователя"""
+        from uuid import uuid4
+
+        return {
+            'id': f'{uuid4()}',  # генерируем UUID как строку
+            'email': DataGenerator.generate_random_email(),
+            'full_name': DataGenerator.generate_random_name(),
+            'password': DataGenerator.generate_random_password(),
+            'created_at': datetime.datetime.now(),
+            'updated_at': datetime.datetime.now(),
+            'verified': False,
+            'banned': False,
+            'roles': '{USER}'
+        }
+
+    @staticmethod
+    def generate_random_int(length: int = 6) -> int:
+        """
+        Генерирует случайное целое число с заданным количеством цифр
+
+        Args:
+            length: Количество цифр в числе (по умолчанию 6)
+
+        Returns:
+            int: Случайное целое число
+
+        Examples:
+            generate_random_int(6) -> 123456
+            generate_random_int(10) -> 1234567890
+        """
+        if length <= 0:
+            return 0
+
+        # Генерируем первую цифру (не может быть 0, если длина > 1)
+        if length == 1:
+            first_digit = random.randint(0, 9)
+        else:
+            first_digit = random.randint(1, 9)  # Первая цифра не может быть 0
+
+        # Преобразуем первую цифру в строку
+        result = str(first_digit)
+
+        # Генерируем остальные цифры
+        for _ in range(length - 1):
+            result += str(random.randint(0, 9))
+
+        return int(result)

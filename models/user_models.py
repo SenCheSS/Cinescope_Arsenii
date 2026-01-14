@@ -110,6 +110,38 @@ class RegistrationUserData(BaseModel):
         data['banned'] = False
         return data
 
+
+class UserInLoginResponse(BaseModel):
+    """Модель пользователя в ответе на логин"""
+    model_config = ConfigDict(
+        json_encoders={
+            Roles: lambda v: v.value
+        }
+    )
+
+    id: str
+    email: EmailStr
+    fullName: str
+    roles: List[Roles]
+
+    @field_validator("roles", mode="before")
+    @classmethod
+    def validate_roles_before(cls, value: Any) -> List[Roles]:
+        """Преобразует строки в Enum Roles перед валидацией."""
+        if isinstance(value, list):
+            result = []
+            for role in value:
+                if isinstance(role, str):
+                    # Преобразуем строку в Enum
+                    result.append(Roles(role))
+                elif isinstance(role, Roles):
+                    result.append(role)
+                else:
+                    raise ValueError(f"Invalid role type: {type(role)}")
+            return result
+        return value
+
+
 class RegisterUserResponse(BaseModel):
     """Модель ответа после регистрации пользователя"""
     model_config = ConfigDict(
@@ -122,7 +154,7 @@ class RegisterUserResponse(BaseModel):
     email: EmailStr
     fullName: str
     verified: bool
-    banned: bool
+    banned: Optional[bool] = False
     roles: List[Roles]
     createdAt: str
 
@@ -178,7 +210,9 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     """Модель ответа после логина"""
     accessToken: str
-    user: RegisterUserResponse
+    refreshToken: str
+    expiresIn: int
+    user: UserInLoginResponse  # Используем новую модель вместо RegisterUserResponse
 
     def log_response(self):
         """Логирование ответа логина (без токена для безопасности)"""

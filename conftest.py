@@ -1,6 +1,10 @@
+import random
 import pytest
 import requests
+import uuid
 from faker import Faker
+from datetime import datetime
+from typing import Dict,Any
 from api.api_manager import ApiManager
 from constants.constants import AUTH_BASE_URL, MOVIES_BASE_URL
 from custom_requester.custom_requester import CustomRequester
@@ -9,6 +13,11 @@ from constants.roles import Roles
 from models.user_models import RegistrationUserData, LoginRequest, LoginResponse, UserCreateRequest
 from utils.data_generator import DataGenerator
 from resources.user_creds import SuperAdminCreds
+from sqlalchemy.orm import Session
+from db_requester.db_client import get_db_session
+from db_requester.db_helpers import DBHelper, MovieDBHelper
+from db_models.movies import MovieDBModel
+
 
 faker = Faker()
 
@@ -22,7 +31,7 @@ def get_auth_token():
 
     try:
         response = requests.post(auth_url, json=auth_data, timeout=10)
-        if response.status_code == 200:
+        if response.status_code in [200, 201]:
             data = response.json()
             token = data.get('accessToken')
             print("Token obtained successfully")
@@ -291,3 +300,68 @@ def registered_user(api_manager, registration_user_data: RegistrationUserData):
                     api_manager.user_api.delete_user(user_id)
             except Exception as cleanup_error:
                 print(f"Cleanup error for user {user_id}: {cleanup_error}")
+
+@pytest.fixture(scope="module")
+def db_session() -> Session:
+    """
+    Фикстура, которая создает и возвращает сессию для работы с базой данных
+    После завершения теста сессия автоматически закрывается
+    """
+    db_session = get_db_session()
+    yield db_session
+    db_session.close()
+
+@pytest.fixture(scope="function")
+def db_helper(db_session) -> DBHelper:
+    """
+    Фикстура для экземпляра хелпера
+    """
+    db_helper = DBHelper(db_session)
+    return db_helper
+
+@pytest.fixture(scope="function")
+def created_test_user(db_helper):
+    """
+    Фикстура, которая создает тестового пользователя в БД
+    и удаляет его после завершения теста
+    """
+    user = db_helper.create_test_user(DataGenerator.generate_user_data())
+    yield user
+    # Cleanup после теста
+    if db_helper.get_user_by_id(user.id):
+        db_helper.delete_user(user)
+
+
+@pytest.fixture(scope="function")
+def movie_helper(db_session) -> MovieDBHelper:
+    """Фикстура для хелпера фильмов"""
+    return MovieDBHelper(db_session)
+
+
+@pytest.fixture(scope="function")
+def sample_movie_data() -> Dict[str, Any]:
+    """Тестовые данные фильма"""
+    unique_id = str(uuid.uuid4())[:8]
+    return {
+        'id': int(str(uuid.uuid4().int)[:8]),  # Числовой ID
+        'name': f"Тестовый фильм {uuid.uuid4().hex[:8]}",
+        'price': random.randint(1, 50), # Целое число! int4
+        'description': f'Описание тестового фильма {uuid.uuid4().hex[:8]}',
+        'image_url': f'https://example.com/test_{uuid.uuid4().hex[:8]}.jpg',
+        'location': random.choice(['SPB', 'MSK']),
+        'published': True,
+        'rating': round(random.uniform(1.0, 10.0), 1), #Дробное число! float8 в БД!
+        'genre_id': random.randint(1, 10),  # Числовой ID от 1 до 10,
+        'created_at': datetime.now()
+    }
+
+
+@pytest.fixture(scope="function")
+def created_test_movie(movie_helper, sample_movie_data) -> MovieDBModel:
+    """Создает и удаляет тестовый фильм"""
+    movie = movie_helper.create_movie(sample_movie_data)
+    yield movie
+
+    # Cleanup
+    if movie_helper.movie_exists(movie.id):
+        movie_helper.delete_movie(movie.id)

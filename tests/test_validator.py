@@ -54,7 +54,6 @@ def create_user_model():
 
     return TestUserModel
 
-
 def test_basic_validation():
     """Базовый тест валидации"""
     print("\n=== Базовый тест валидации ===")
@@ -71,7 +70,7 @@ def test_basic_validation():
     }
 
     user = TestUserModel(**valid_data)
-    print(f"✅ Успех: {user.email}, {user.fullName}")
+    print(f"Успех: {user.email}, {user.fullName}")
 
     # Ошибка: email без @
     invalid_data = valid_data.copy()
@@ -79,7 +78,7 @@ def test_basic_validation():
 
     try:
         TestUserModel(**invalid_data)
-        print("❌ Ошибка: Должна была быть ValidationError")
+        print("Ошибка: Должна была быть ValidationError")
         return False
     except ValidationError as e:
         errors = [err["msg"] for err in e.errors()]
@@ -115,7 +114,7 @@ def test_basic_validation():
 
 def main():
     """Основная функция запуска тестов"""
-    print("🚀 Запуск простого теста валидации")
+    print("Запуск простого теста валидации")
     print("=" * 50)
 
     try:

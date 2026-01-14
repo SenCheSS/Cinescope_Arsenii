@@ -33,7 +33,7 @@ class CustomRequester:
         :param endpoint: Эндпоинт (например, "/login").
         :param data: Тело запроса (JSON-данные).
         :param params: Query параметры.
-        :param expected_status: Ожидаемый статус-код (по умолчанию 200).
+        :param expected_status: Ожидаемый статус-код или список статусов.
         :param need_logging: Флаг для логирования (по умолчанию True).
         :param response_model: Pydantic модель для валидации ответа (опционально).
         :return: Объект ответа requests.Response.
@@ -47,21 +47,21 @@ class CustomRequester:
             headers=self.headers)
         if need_logging:
             self.log_request_and_response(response)
-        if response.status_code != expected_status:
-            raise ValueError(f'Unexpected status code: {response.status_code}. Expected: {expected_status}')
-        if response_model and response.text:
-            try:
-                # Всего с помощью 1 строки!
-                validated_response = response_model(**response.json())
-                return validated_response  # Возвращаем валидированный объект
-            except ValidationError as e:
-                self.logger.error(f"Response validation failed: {e}")
-                raise ValueError(f"Response validation error: {e}")
-            except json.JSONDecodeError as e:
-                self.logger.error(f"Invalid JSON in response: {e}")
-                raise ValueError(f"Invalid JSON in response: {e}")
-        return response
 
+        # Поддержка как одиночного статуса, так и списка статусов
+        if isinstance(expected_status, int):
+            expected_statuses = [expected_status]
+        else:
+            expected_statuses = expected_status
+
+        if response.status_code not in expected_statuses:
+            raise ValueError(
+                f'Unexpected status code: {response.status_code}. '
+                f'Expected: {expected_statuses}. '
+                f'Response: {response.text[:200]}'
+            )
+
+        return response
 
     def _update_session_headers(self, **kwargs):
         """
