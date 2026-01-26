@@ -24,6 +24,14 @@ class PageAction:
         self.page.wait_for_url(url)
         assert self.page.url == url, 'Редирект на домашнюю страницу не произошел'
 
+    @allure.step("Проверка, что текущий URL содержит: {expected_path}")
+    def assert_url_contains(self,expected_path: str):
+        assert expected_path in self.page.url, f"URL {self.page.url} не содержит {expected_path}"
+
+    @allure.step("Проверка, что текущий URL не содержит: {not_expected_path}")
+    def assert_url_not_contains(self, not_expected_path: str):
+        assert not_expected_path not in self.page.url, f"URL {self.page.url} содержит {not_expected_path}"
+
     @allure.step("Получение текста элемента: {locator}")
     def get_element_text(self, locator: str) -> str:
         return self.page.locator(locator).text_content()
@@ -47,12 +55,64 @@ class PageAction:
             notification_locator = self.page.get_by_text(text)
             # Ждем появления элемента
             notification_locator.wait_for(state="visible")
-            assert notification_locator.is_visible(), "Уведомление не появилось"
+            assert notification_locator.is_visible(), f"Уведомление с текстом {text} не появилось"
 
         with allure.step("Проверка исчезновения алерта с текстом: '{text}'"):
             # Ждем, пока алерт исчезнет
             notification_locator.wait_for(state="hidden")
-            assert notification_locator.is_visible() == False, "Уведомление не исчезло"
+            assert notification_locator.is_visible() == False, f"Уведомление с текстом {text} не исчезло"
+            return True
+
+    @allure.step("Очистка поля: {locator}")
+    def clear_field(self, locator: str):
+            self.page.fill(locator, "")
+
+    @allure.step("Проверка видимости элемента: {locator}")
+    def is_element_visible(self, locator: str) -> bool:
+        return self.page.locator(locator).is_visible()
+
+    @allure.step("Проверка наличия текста '{text}' на странице")
+    def is_text_present(self, text: str) -> bool:
+        """Проверяет, присутствует ли текст на странице"""
+        try:
+            return self.page.locator(f"text={text}").is_visible()
+        except:
+            return False
+
+    @allure.step("Получение текста валидационного сообщения для поля: {locator}")
+    def get_validation_message(self, locator: str) -> str:
+        """Получает текст валидационного сообщения рядом с полем"""
+        # Ищем элемент с классом text-red-500 после поля ввода
+        validation_locator = f"{locator} + .text-red-500"
+        try:
+            if self.page.locator(validation_locator).is_visible():
+                return self.page.locator(validation_locator).text_content()
+        except:
+            pass
+        return ""
+
+    @allure.step("Проверка валидационного сообщения для поля: {locator}")
+    def assert_validation_message(self, locator: str, expected_text: str = None):
+        """
+        Проверяет наличие валидационного сообщения.
+        Если передан expected_text - проверяет конкретный текст.
+        """
+        validation_locator = f"{locator} + .text-red-500"
+
+        # Ждем появления элемента валидации
+        try:
+            self.page.locator(validation_locator).wait_for(state="visible", timeout=5000)
+        except:
+            pass
+
+        is_visible = self.page.locator(validation_locator).is_visible()
+        assert is_visible, f"Валидационное сообщение для поля {locator} не отображается"
+
+        if expected_text:
+            actual_text = self.page.locator(validation_locator).text_content()
+            assert expected_text in actual_text, \
+                f"Ожидался текст: '{expected_text}', получен: '{actual_text}'"
+
 
 class BasePage(PageAction): #Базова логика доступная для всех страниц на сайте
     def __init__(self, page:Page):
@@ -88,6 +148,7 @@ class CinescopRegisterPage(BasePage):
         self.register_button = "button[type='submit']"
         self.sign_button = "a[href='/login' and text()='Войти']"
 
+
     # Локальный action методы
     def open(self):
         self.open_url(self.url)
@@ -115,9 +176,13 @@ class CinescopLoginPage(BasePage):
         # Локаторы элементов
         self.email_input = "input[name='email']"
         self.password_input = "input[name='password']"
-
         self.login_button = "button[type='submit']"
         self.register_button = "a[href='/register' and text()='Зарегистрироваться']"
+
+        self.email_validation = "input[name='email'] + .text-red-500"
+        self.password_validation = "input[name='password'] + .text-red-500"
+
+        self.validation_messages = ".text-red-500.text-sm.mt-1"
 
     # Локальные action методы
     def open(self):
@@ -131,5 +196,38 @@ class CinescopLoginPage(BasePage):
     def assert_was_redirect_to_home_page(self):
         self.wait_redirect_for_url(self.home_url)
 
+    def assert_stay_on_login_page(self):
+        self.assert_url_contains("/login")
+
     def assert_allert_was_pop_up(self):
         self.check_pop_up_element_with_text("Вы вошли в аккаунт")
+
+    def assert_error_message_pop_up(self):
+        self.check_pop_up_element_with_text("Неверная почта или пароль")
+
+    @allure.step("Проверка валидации email поля")
+    def assert_email_validation_displayed(self, expected_text: str = None):
+        """Проверяет отображение валидационного сообщения для email"""
+        self.assert_validation_message(self.email_input, expected_text)
+
+    @allure.step("Проверка валидации password поля")
+    def assert_password_validation_displayed(self, expected_text: str = None):
+        """Проверяет отображение валидационного сообщения для пароля"""
+        self.assert_validation_message(self.password_input, expected_text)
+
+    @allure.step("Проверка, что отображаются сообщения валидации")
+    def assert_validation_messages_displayed(self):
+        """Проверяет, что есть хотя бы одно сообщение валидации"""
+        validation_elements = self.page.locator(self.validation_messages)
+        count = validation_elements.count()
+        assert count > 0, "Сообщения валидации не отображаются"
+
+    @allure.step("Получение текста валидации email")
+    def get_email_validation_text(self) -> str:
+        """Возвращает текст валидационного сообщения для email"""
+        return self.get_validation_message(self.email_input)
+
+    @allure.step("Получение текста валидации пароля")
+    def get_password_validation_text(self) -> str:
+        """Возвращает текст валидационного сообщения для пароля"""
+        return self.get_validation_message(self.password_input)
