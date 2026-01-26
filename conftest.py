@@ -391,6 +391,7 @@ def context(browser):
     context.close()
 
 
+
 @pytest.fixture(scope="function")  # Страница создается для каждого теста
 def page(context):
     page = context.new_page()

@@ -20,7 +20,7 @@ class PageAction:
         self.page.click(locator)
 
     @allure.step("Ожидание загрузки страницы: {url}")
-    def wait_redirect_for_url(self, url: str):
+    def wait_redirect_for_url(self, url: str) -> None:
         self.page.wait_for_url(url)
         assert self.page.url == url, 'Редирект на домашнюю страницу не произошел'
 

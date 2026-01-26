@@ -41,7 +41,7 @@
 #<br/>
 #<button>Submit</button>
 #----
-#expect(page.get_by_role("heading", name="Sign up"))
+#expect(page.get_by_role("headiсng", name="Sign up"))
 #page.get_by_role("checkbox", name="Subscribe")
 #page.get_by_role("button", name=re.compile("submit", re.IGNORECASE)) #Регулярное выражение для name
 

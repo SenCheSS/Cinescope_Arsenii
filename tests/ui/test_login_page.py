@@ -1,11 +1,8 @@
-from asyncio import timeout
-
 import allure
 import pytest
 import time
 from playwright.sync_api import Page, sync_playwright
 
-from conftest import browser
 from models.page_object_models import CinescopLoginPage
 
 
@@ -22,14 +19,14 @@ class TestloginPage:
             login_page = CinescopLoginPage(page)  # Создаем объект страницы Login
 
             login_page.open()
-            login_page.login(registered_user.email, registered_user.password)  # Осуществяем вход
+            login_page.login(registered_user.email, registered_user.password)  # Осуществляем вход
 
             login_page.assert_was_redirect_to_home_page()  # Проверка редиректа на домашнюю страницу
             login_page.make_screenshot_and_attach_to_allure()  # Прикрепляем скриншот
             login_page.assert_allert_was_pop_up()  # Проверка появления и исчезновения алерта
 
             # Пауза для визуальной проверки (нужно удалить в реальном тестировании)
-            time.sleep(10)
+            time.sleep(2)
             browser.close()
 
 
@@ -54,7 +51,7 @@ class TestLoginPageNegative:
 
             login_page.make_screenshot_and_attach_to_allure()
 
-            time.sleep(5)
+            time.sleep(2)
             browser.close()
 
     @allure.title("Попытка входа с несуществующим пользователем")
@@ -77,7 +74,7 @@ class TestLoginPageNegative:
 
             login_page.make_screenshot_and_attach_to_allure()
 
-            time.sleep(5)
+            time.sleep(2)
             browser.close()
 
     @allure.title('Тест авторизации с пустыми полями - проверка валидации')
