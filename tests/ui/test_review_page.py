@@ -1,74 +1,54 @@
 import allure
 import pytest
-import time
-from playwright.sync_api import Page, sync_playwright
-from models.page_object_models import CinescopLoginPage
+from pages.page_object_reviewpage import ReviewPage
+
 
 @allure.epic("Тестирование UI")
-@allure.feature("Тестирование Создания Отзыва Администратором")
+@allure.feature("Создание отзывов администратором")
 @pytest.mark.ui
 class TestAdminReview:
-    @allure.title("Оставление отзыва под админом")
-    def test_admin_create_review(self):
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=False)
-            page = browser.new_page()
 
-            try:
-                # Логинимся
-                login_page = CinescopLoginPage(page)
-                login_page.open()
+    @allure.title("Админ создает и удаляет отзыв")
+    def test_admin_review_flow_full(self, review_page_for_admin: ReviewPage):
+        """Полный тест с использованием всех методов ReviewPage"""
+        review_page = review_page_for_admin
 
-                admin_email = 'api1@gmail.com'
-                admin_password = 'asdqwe123Q'
+        # Проверяем начальное состояние
+        review_page.assert_review_form_visible()
+        initial_count = review_page.get_reviews_count()
 
-                login_page.login(admin_email, admin_password)
-
-                login_page.assert_was_redirect_to_home_page()
-                time.sleep(2)
-
-                # Переход к фильму
-                details_buttons = page.locator("text=Подробнее")
-
-                if details_buttons.count() == 0:
-                    pytest.skip("Не найдены кнопки 'Подробнее' на странице")
-
-                details_buttons.first.click()
-                page.wait_for_load_state("networkidle")
-                time.sleep(2)
-
-                # Оставляем отзыв
-                review_textarea = page.locator("textarea")
-                review_textarea.fill("Отличный фильм! Тестовый отзыв от администратора.")
-
-                rating_select = page.locator("select").first
-                if rating_select.count() > 0:
-                    rating_select.select_option(value="4")
-                else:
-                    rating_buttons = page.get_by_role('option', name='4')
-                    if rating_buttons.count() > 0:
-                        rating_buttons.first.click()
-
-                submit_button = page.locator("button:has-text('Отправить')").first
-                submit_button.click()
-
-                # Проверяем успешное создание отзыва
-                try:
-                    page.wait_for_selector("text=Отзыв успешно создан", timeout=5000)
-                    success_message = page.locator("text=Отзыв успешно создан")
-                    assert success_message.is_visible(), "Сообщение об успехе не появилось"
-
-                except:
-                    raise AssertionError('Не появилось сообщение об успешном создании отзыва')
-
-                time.sleep(5)
-
-                login_page.make_screenshot_and_attach_to_allure()
-
-                page.locator('.lucide-more-vertical').first.click()
-                page.get_by_role('menuitem', name='Удалить').click()
-                page.wait_for_selector("text=Отзыв успешно удален", timeout=5000)
-                time.sleep(2)
-
-            finally:
-                browser.close()
+        # Создаем уникальный отзыв
+        review_text = review_page.create_unique_review(
+            base_text="Отличный фильм! Тестовый отзыв от администратора",
+            rating=4
+        )
+        review_page.assert_review_created_successfully()
+        review_page.wait_for_page_load()
+        # Проверяем, что отзыв добавился
+        assert review_page.has_review_with_text(review_text), \
+            f"Созданный отзыв не найден: {review_text}"
+        new_count = review_page.get_reviews_count()
+        assert new_count == initial_count + 1, \
+            f"Количество отзывов не изменилось: было {initial_count}, стало {new_count}"
+        # Проверяем ограничение "один отзыв"
+        # После создания форма должна исчезнуть
+        try:
+            review_page.assert_review_form_visible()
+            assert False, "Форма отзыва все еще видна после создания отзыва"
+        except AssertionError:
+            # Это ожидаемое поведение - форма не видна
+            pass
+        # Удаляем отзыв
+        review_page.delete_review(0)
+        review_page.assert_review_deleted_successfully()
+        review_page.wait_for_page_load()
+        # Проверяем удаление
+        assert not review_page.has_review_with_text(review_text), \
+            f"Отзыв все еще присутствует после удаления: {review_text}"
+        final_count = review_page.get_reviews_count()
+        assert final_count == initial_count, \
+            f"Количество отзывов не вернулось к исходному: было {initial_count}, стало {final_count}"
+        # Проверяем, что форма снова доступна
+        review_page.assert_review_form_visible()
+        # Финальный скриншот
+        review_page.make_screenshot_and_attach_to_allure("Тест завершен")

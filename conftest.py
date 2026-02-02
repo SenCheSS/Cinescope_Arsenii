@@ -1,4 +1,6 @@
 import random
+
+import allure
 import pytest
 import requests
 import uuid
@@ -11,6 +13,7 @@ from custom_requester.custom_requester import CustomRequester
 from entities.user import User
 from constants.roles import Roles
 from models.user_models import RegistrationUserData, LoginRequest, LoginResponse, UserCreateRequest
+from pages import ReviewPage, CinescopLoginPage
 from tools import Tools
 from utils.data_generator import DataGenerator
 from resources.user_creds import SuperAdminCreds
@@ -378,7 +381,6 @@ def browser(playwright):
     yield browser  # yield возвращает значение фикстуры, выполнение теста продолжится после yield
     browser.close()  # Браузер закрывается после завершения всех тестов
 
-
 @pytest.fixture(scope="function")
 def context(browser):
     context = browser.new_context()
@@ -390,10 +392,52 @@ def context(browser):
     context.tracing.stop(path=trace_path)
     context.close()
 
-
-
 @pytest.fixture(scope="function")  # Страница создается для каждого теста
 def page(context):
     page = context.new_page()
     yield page  # yield возвращает значение фикстуры, выполнение теста продолжится после yield
     page.close()  # Страница закрывается после завершения теста
+
+
+@pytest.fixture
+def authenticated_admin(page):
+    """Фикстура: авторизованный администратор"""
+    login_page = CinescopLoginPage(page)
+    login_page.open()
+    login_page.login(SuperAdminCreds.USERNAME, SuperAdminCreds.PASSWORD)
+    login_page.assert_was_redirect_to_home_page()
+    login_page.assert_allert_was_pop_up()
+    return page
+
+
+@pytest.fixture
+def review_page_for_admin(authenticated_admin):
+    """
+    Фикстура: подготовленная страница с отзывами для админа.
+    Использует исправленный go_to_movie_details.
+    """
+    review_page = ReviewPage(authenticated_admin)
+
+    # Переходим на страницу фильма
+    review_page.go_to_movie_details()
+
+    # Убеждаемся, что мы на странице фильма
+    assert "/movies/" in authenticated_admin.url, \
+        f"Не на странице фильма после go_to_movie_details! URL: {authenticated_admin.url}"
+
+    # Cleanup перед тестом: если уже есть отзыв - удаляем
+    try:
+        if not authenticated_admin.locator("textarea").first.is_visible(timeout=2000):
+            review_page.delete_review(0)
+            review_page.assert_review_deleted_successfully()
+            authenticated_admin.wait_for_load_state("networkidle")
+    except:
+        pass
+
+    yield review_page
+
+    # Cleanup после теста
+    try:
+        review_page.delete_review(0)
+    except:
+        pass
